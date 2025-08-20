@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Letter with Secret Gallery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        .font-dancing-script {
+            font-family: 'Dancing Script', cursive;
+        }
+        
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        
+        .letter-fold {
+            transform-style: preserve-3d;
+            transition: transform 0.8s ease-in-out;
+            cursor: pointer;
+        }
+        
+        .letter-fold.open {
+            transform: rotateY(180deg);
+        }
+        
+        .letter-front, .letter-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+        }
+        
+        .letter-back {
+            transform: rotateY(180deg);
+        }
+        
+        .photo-slot {
+            aspect-ratio: 1;
+            min-height: 80px;
+            transition: all 0.3s ease;
+        }
+        
+        .photo-slot:hover {
+            transform: scale(1.05);
+        }
+        
+        .photo-slot.dragover {
+            border-color: #3b82f6;
+            background-color: #dbeafe;
+        }
+        
+        .upload-area {
+            border: 2px dashed #d1d5db;
+        }
+        
+        .upload-area:hover {
+            border-color: #6366f1;
+            background-color: #f8fafc;
+        }
+        
+        .fullscreen-overlay {
+            backdrop-filter: blur(5px);
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+
+
+    </style>
+</head>
+<body class="overflow-hidden" id="mainBody">
+    <!-- Spooky Food Background -->
+    <div id="foodBackground" class="fixed inset-0 bg-gradient-to-br from-gray-900 via-purple-900 to-black pointer-events-none z-10">
+        <!-- Floating spooky particles -->
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="absolute top-10 left-10 text-2xl animate-pulse opacity-30">👻</div>
+            <div class="absolute top-32 right-20 text-xl animate-bounce opacity-20" style="animation-delay: 1s;">🕷️</div>
+            <div class="absolute bottom-20 left-32 text-3xl animate-pulse opacity-25" style="animation-delay: 2s;">🦇</div>
+            <div class="absolute top-1/2 right-10 text-2xl animate-bounce opacity-30" style="animation-delay: 0.5s;">🕸️</div>
+            <div class="absolute bottom-32 right-1/3 text-xl animate-pulse opacity-20" style="animation-delay: 1.5s;">👻</div>
+        </div>
+        <!-- Spooky Burgers -->
+        <div class="absolute top-1/4 left-1/4 text-8xl animate-float cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-orange-500/20 shadow-lg shadow-orange-500/50" data-food="burger" style="animation-delay: 0.5s; z-index: 10; user-select: none; filter: drop-shadow(0 0 10px orange);">🍔</div>
+        <div class="absolute bottom-1/4 left-1/3 text-6xl animate-float cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-orange-500/20 shadow-lg shadow-orange-500/50" data-food="burger" style="animation-delay: 2.2s; z-index: 10; user-select: none; filter: drop-shadow(0 0 8px orange);">🍔</div>
+        <div class="absolute top-1/3 right-1/3 text-7xl animate-float cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-orange-500/20 shadow-lg shadow-orange-500/50" data-food="burger" style="animation-delay: 1.5s; z-index: 10; user-select: none; filter: drop-shadow(0 0 12px orange);">🍔</div>
+        
+        <!-- Spooky Fries -->
+        <div class="absolute top-1/2 left-16 text-6xl animate-pulse cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-yellow-500/20 shadow-lg shadow-yellow-500/50" data-food="fries" style="animation-delay: 0.3s; z-index: 10; user-select: none; filter: drop-shadow(0 0 8px yellow);">🍟</div>
+        <div class="absolute bottom-1/2 right-20 text-5xl animate-pulse cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-yellow-500/20 shadow-lg shadow-yellow-500/50" data-food="fries" style="animation-delay: 2.1s; z-index: 10; user-select: none; filter: drop-shadow(0 0 6px yellow);">🍟</div>
+        <div class="absolute top-20 right-1/3 text-4xl animate-pulse cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-yellow-500/20 shadow-lg shadow-yellow-500/50" data-food="fries" style="animation-delay: 1.3s; z-index: 10; user-select: none; filter: drop-shadow(0 0 5px yellow);">🍟</div>
+        <div class="absolute bottom-1/3 right-1/4 text-7xl animate-pulse cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-yellow-500/20 shadow-lg shadow-yellow-500/50" data-food="fries" style="animation-delay: 1.8s; z-index: 10; user-select: none; filter: drop-shadow(0 0 10px yellow);">🍟</div>
+        
+        <!-- Spooky Drumsticks -->
+        <div class="absolute top-16 left-1/2 text-6xl animate-bounce cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-red-500/20 shadow-lg shadow-red-500/50" data-food="drumstick" style="animation-delay: 0.7s; z-index: 10; user-select: none; filter: drop-shadow(0 0 8px red);">🍗</div>
+        <div class="absolute bottom-16 right-1/2 text-5xl animate-bounce cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-red-500/20 shadow-lg shadow-red-500/50" data-food="drumstick" style="animation-delay: 1.7s; z-index: 10; user-select: none; filter: drop-shadow(0 0 6px red);">🍗</div>
+        <div class="absolute top-2/3 left-16 text-4xl animate-bounce cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-red-500/20 shadow-lg shadow-red-500/50" data-food="drumstick" style="animation-delay: 2.7s; z-index: 10; user-select: none; filter: drop-shadow(0 0 5px red);">🍗</div>
+        <div class="absolute bottom-2/3 right-16 text-6xl animate-bounce cursor-pointer hover:scale-110 transition-transform food-item pointer-events-auto p-3 rounded-full hover:bg-red-500/20 shadow-lg shadow-red-500/50" data-food="drumstick" style="animation-delay: 1.2s; z-index: 10; user-select: none; filter: drop-shadow(0 0 8px red);">🍗</div>
+    </div>
+    <!-- Letter Container -->
+    <div id="letterContainer" class="flex items-center justify-center min-h-screen relative z-20 pointer-events-none">
+        <div class="relative w-96 h-96 perspective-1000">
+            <div id="letterFold" class="letter-fold w-full h-full">
+                <!-- Front of Letter -->
+                <div class="letter-front pointer-events-auto relative">
+                    <!-- Spooky Tree Shape -->
+                    <svg viewBox="0 0 400 400" class="w-full h-full">
+                        <!-- Tree trunk -->
+                        <path d="M180 350 Q185 320 190 290 Q195 260 185 230 Q175 200 190 170 Q205 140 195 110 Q185 80 200 50" 
+                              fill="url(#trunkGradient)" stroke="#4a1d3a" stroke-width="3" class="animate-pulse"/>
+                        
+                        <!-- Tree canopy/crown -->
+                        <ellipse cx="200" cy="90" rx="100" ry="75" 
+                                fill="url(#canopyGradient)" stroke="#4a1d3a" stroke-width="3" 
+                                class="animate-pulse" style="animation-delay: 0.5s;"/>
+                        
+                        <!-- Twisted branches -->
+                        <path d="M130 110 Q110 100 95 95 Q80 90 70 85" 
+                              fill="none" stroke="#4a1d3a" stroke-width="4" class="animate-pulse" style="animation-delay: 1s;"/>
+                        <path d="M270 110 Q290 100 305 95 Q320 90 330 85" 
+                              fill="none" stroke="#4a1d3a" stroke-width="4" class="animate-pulse" style="animation-delay: 1.2s;"/>
+                        <path d="M160 70 Q140 55 130 40" 
+                              fill="none" stroke="#4a1d3a" stroke-width="3" class="animate-pulse" style="animation-delay: 1.4s;"/>
+                        <path d="M240 70 Q260 55 270 40" 
+                              fill="none" stroke="#4a1d3a" stroke-width="3" class="animate-pulse" style="animation-delay: 1.6s;"/>
+                        
+                        <!-- Spooky roots -->
+                        <path d="M180 350 Q160 360 140 365 Q120 370 100 375" 
+                              fill="none" stroke="#2d1b2e" stroke-width="5" class="animate-pulse" style="animation-delay: 2s;"/>
+                        <path d="M190 350 Q210 360 230 365 Q250 370 270 375" 
+                              fill="none" stroke="#2d1b2e" stroke-width="5" class="animate-pulse" style="animation-delay: 2.2s;"/>
+                        
+                        <!-- Gradients -->
+                        <defs>
+                            <linearGradient id="trunkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#4a1d3a;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#2d1b2e;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#1a0f1a;stop-opacity:1" />
+                            </linearGradient>
+                            <radialGradient id="canopyGradient" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" style="stop-color:#4c1d95;stop-opacity:0.9" />
+                                <stop offset="50%" style="stop-color:#2d1b2e;stop-opacity:0.95" />
+                                <stop offset="100%" style="stop-color:#1a0f1a;stop-opacity:1" />
+                            </radialGradient>
+                        </defs>
+                    </svg>
+                    
+                    <!-- Content overlay on the tree -->
+                    <div class="absolute inset-0 flex flex-col items-center justify-center p-8 z-10">
+                        <div class="text-center bg-black/40 rounded-xl p-6 backdrop-blur-sm border border-purple-500/30">
+                            <div class="text-5xl mb-3 animate-bounce">🕯️</div>
+                            <h1 class="text-2xl font-dancing-script text-orange-300 mb-2">Cursed Grimoire</h1>
+                            <p class="text-orange-200 text-xs mb-3 opacity-80">Dark magic stirs within... 🌙</p>
+                            <div id="foodTracker" class="text-center mb-3">
+                                <p class="text-orange-300 text-xs mb-2">Gather the cursed ingredients:</p>
+                                <div class="flex justify-center gap-3">
+                                    <span id="burgerStatus" class="text-xl opacity-30">🍔</span>
+                                    <span id="drumstickStatus" class="text-xl opacity-30">🍗</span>
+                                    <span id="friesStatus" class="text-xl opacity-30">🍟</span>
+                                </div>
+                            </div>
+                            <button id="openLetter" class="bg-gray-400 text-gray-600 px-6 py-2 rounded-full font-medium shadow-lg cursor-not-allowed opacity-50 text-sm" disabled>
+                                Gather the ritual ingredients first! 🧙‍♀️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Back of Letter (Gallery Preview) -->
+                <div class="letter-back bg-gradient-to-br from-indigo-900 via-purple-900 to-black rounded-lg shadow-2xl border-4 border-indigo-700 flex flex-col items-center justify-center p-8 relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 animate-pulse"></div>
+                    <div class="text-center relative z-10">
+                        <div class="text-5xl mb-4 animate-bounce">🔮</div>
+                        <h2 class="text-2xl font-dancing-script text-purple-300 mb-4">The Haunted Crypt</h2>
+                        <p class="text-purple-200 mb-6 opacity-80">43 cursed souls trapped within... 👻</p>
+                        <button id="enterGallery" class="bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white px-8 py-3 rounded-full font-medium shadow-lg transform hover:scale-105 transition-all duration-300 border border-indigo-400">
+                            Enter the Crypt ⚰️
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- Secret Chamber Page -->
+    <div id="secretChamber" class="hidden min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-black flex items-center justify-center">
+        <!-- Rich Magical Background for Chamber -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <!-- Mystical Fog Layers -->
+            <div class="absolute inset-0 bg-gradient-to-t from-purple-900/40 via-transparent to-indigo-900/30 animate-pulse" style="animation-duration: 10s;"></div>
+            <div class="absolute inset-0 bg-gradient-to-br from-transparent via-purple-800/20 to-gray-900/40 animate-pulse" style="animation-duration: 14s; animation-delay: 3s;"></div>
+            
+            <!-- Floating Ancient Runes and Symbols -->
+            <div class="absolute top-16 left-16 text-4xl animate-float opacity-30 text-purple-400" style="animation-delay: 0.8s; filter: drop-shadow(0 0 18px rgba(147,51,234,0.9));">⚡</div>
+            <div class="absolute top-32 right-20 text-3xl animate-pulse opacity-25 text-indigo-300" style="animation-delay: 2.5s; filter: drop-shadow(0 0 15px rgba(99,102,241,0.8));">🔱</div>
+            <div class="absolute bottom-24 left-20 text-5xl animate-bounce opacity-35 text-purple-300" style="animation-delay: 1.2s; filter: drop-shadow(0 0 25px rgba(168,85,247,1.0));">🌙</div>
+            <div class="absolute top-1/3 right-16 text-3xl animate-float opacity-30 text-violet-400" style="animation-delay: 3.5s; filter: drop-shadow(0 0 16px rgba(139,92,246,0.9));">🔮</div>
+            <div class="absolute bottom-1/3 right-24 text-4xl animate-pulse opacity-25 text-purple-400" style="animation-delay: 4.2s; filter: drop-shadow(0 0 22px rgba(147,51,234,0.8));">⚰️</div>
+            
+            <!-- Enhanced Spooky Elements -->
+            <div class="absolute top-20 left-1/3 text-3xl animate-pulse opacity-25 text-gray-400" style="animation-delay: 1.3s; filter: drop-shadow(0 0 12px rgba(156,163,175,0.7));">👻</div>
+            <div class="absolute top-48 right-1/4 text-2xl animate-bounce opacity-20 text-orange-400" style="animation-delay: 2.8s; filter: drop-shadow(0 0 10px rgba(251,146,60,0.6));">🕷️</div>
+            <div class="absolute bottom-16 left-1/2 text-4xl animate-float opacity-30 text-gray-300" style="animation-delay: 3.8s; filter: drop-shadow(0 0 16px rgba(209,213,219,0.8));">🦇</div>
+            <div class="absolute top-2/3 left-20 text-3xl animate-pulse opacity-25 text-yellow-400" style="animation-delay: 2.1s; filter: drop-shadow(0 0 14px rgba(250,204,21,0.7));">🕸️</div>
+            <div class="absolute bottom-1/4 right-1/3 text-2xl animate-bounce opacity-20 text-orange-300" style="animation-delay: 4.5s; filter: drop-shadow(0 0 12px rgba(253,186,116,0.6));">🕯️</div>
+            
+            <!-- Floating Magical Stars and Sparkles -->
+            <div class="absolute top-12 left-1/2 text-4xl animate-float opacity-45" style="animation-delay: 1.1s; filter: drop-shadow(0 0 12px rgba(255,215,0,0.9));">⭐</div>
+            <div class="absolute bottom-1/4 left-24 text-3xl animate-pulse opacity-45" style="animation-delay: 2.6s; filter: drop-shadow(0 0 10px rgba(255,255,255,0.8));">✨</div>
+            <div class="absolute top-3/4 right-1/4 text-3xl animate-float opacity-45" style="animation-delay: 1.9s; filter: drop-shadow(0 0 14px rgba(138,43,226,1.0));">🌟</div>
+            <div class="absolute top-1/4 left-1/5 text-2xl animate-bounce opacity-45" style="animation-delay: 3.4s; filter: drop-shadow(0 0 8px rgba(255,215,0,0.7));">⭐</div>
+            <div class="absolute bottom-12 right-1/3 text-4xl animate-pulse opacity-45" style="animation-delay: 1.4s; filter: drop-shadow(0 0 16px rgba(255,255,255,0.9));">✨</div>
+            <div class="absolute top-1/5 right-20 text-2xl animate-float opacity-45" style="animation-delay: 3.1s; filter: drop-shadow(0 0 10px rgba(138,43,226,0.8));">🌟</div>
+            
+            <!-- Additional Mystical Elements -->
+            <div class="absolute top-8 left-1/4 text-3xl animate-float opacity-35 text-cyan-400" style="animation-delay: 4.3s; filter: drop-shadow(0 0 18px rgba(34,211,238,0.9));">💎</div>
+            <div class="absolute bottom-8 right-1/5 text-2xl animate-bounce opacity-40 text-emerald-400" style="animation-delay: 2.9s; filter: drop-shadow(0 0 15px rgba(52,211,153,0.8));">🧿</div>
+            <div class="absolute top-1/2 left-12 text-3xl animate-pulse opacity-30 text-pink-400" style="animation-delay: 4.1s; filter: drop-shadow(0 0 14px rgba(244,114,182,0.9));">🔯</div>
+            <div class="absolute bottom-1/2 right-12 text-2xl animate-float opacity-35 text-amber-400" style="animation-delay: 2.2s; filter: drop-shadow(0 0 12px rgba(251,191,36,0.8));">⭐</div>
+            <div class="absolute top-44 left-3/4 text-3xl animate-bounce opacity-40 text-rose-400" style="animation-delay: 4.8s; filter: drop-shadow(0 0 17px rgba(251,113,133,0.9));">💫</div>
+            <div class="absolute bottom-44 left-1/6 text-2xl animate-pulse opacity-35 text-teal-400" style="animation-delay: 2.4s; filter: drop-shadow(0 0 13px rgba(45,212,191,0.8));">🌟</div>
+            
+            <!-- Floating Orbs and Energy -->
+            <div class="absolute top-24 right-2/3 w-5 h-5 bg-purple-500/40 rounded-full animate-pulse" style="animation-delay: 3.6s; filter: blur(2px) drop-shadow(0 0 25px rgba(147,51,234,1.0));"></div>
+            <div class="absolute bottom-24 left-2/3 w-7 h-7 bg-indigo-400/35 rounded-full animate-bounce" style="animation-delay: 1.8s; filter: blur(1px) drop-shadow(0 0 20px rgba(99,102,241,0.9));"></div>
+            <div class="absolute top-64 right-1/6 w-4 h-4 bg-cyan-500/45 rounded-full animate-float" style="animation-delay: 4.4s; filter: blur(1px) drop-shadow(0 0 18px rgba(34,211,238,1.0));"></div>
+            <div class="absolute bottom-64 left-1/2 w-6 h-6 bg-pink-500/35 rounded-full animate-pulse" style="animation-delay: 3.1s; filter: blur(2px) drop-shadow(0 0 22px rgba(236,72,153,0.9));"></div>
+            <div class="absolute top-84 left-1/6 w-5 h-5 bg-emerald-500/40 rounded-full animate-bounce" style="animation-delay: 3.9s; filter: blur(1px) drop-shadow(0 0 20px rgba(16,185,129,1.0));"></div>
+            <div class="absolute bottom-84 right-2/3 w-4 h-4 bg-amber-500/45 rounded-full animate-float" style="animation-delay: 1.6s; filter: blur(1px) drop-shadow(0 0 18px rgba(245,158,11,0.9));"></div>
+            
+            <!-- Mystical Particles -->
+            <div class="absolute top-36 left-2/3 w-2 h-2 bg-white/70 rounded-full animate-pulse" style="animation-delay: 5.2s; filter: drop-shadow(0 0 6px white);"></div>
+            <div class="absolute bottom-36 right-2/5 w-2 h-2 bg-purple-300/80 rounded-full animate-bounce" style="animation-delay: 6.1s; filter: drop-shadow(0 0 5px purple);"></div>
+            <div class="absolute top-1/3 left-3/5 w-2 h-2 bg-cyan-300/70 rounded-full animate-float" style="animation-delay: 7.3s; filter: drop-shadow(0 0 7px cyan);"></div>
+            <div class="absolute bottom-1/3 right-3/5 w-2 h-2 bg-pink-300/80 rounded-full animate-pulse" style="animation-delay: 8.1s; filter: drop-shadow(0 0 6px pink);"></div>
+            
+            <!-- Additional Floating Elements -->
+            <div class="absolute top-28 right-1/2 text-xl animate-float opacity-25 text-violet-300" style="animation-delay: 5.5s; filter: drop-shadow(0 0 8px rgba(196,181,253,0.7));">🌙</div>
+            <div class="absolute bottom-28 left-1/4 text-2xl animate-pulse opacity-30 text-indigo-400" style="animation-delay: 6.2s; filter: drop-shadow(0 0 12px rgba(129,140,248,0.8));">🔮</div>
+            <div class="absolute top-52 left-3/4 text-xl animate-bounce opacity-25 text-purple-500" style="animation-delay: 7.1s; filter: drop-shadow(0 0 10px rgba(168,85,247,0.7));">⚡</div>
+        </div>
+        
+        <div class="relative w-96 h-96">
+            <!-- Spooky Tree Shape for Chamber -->
+            <svg viewBox="0 0 400 400" class="w-full h-full">
+                <!-- Tree trunk -->
+                <path d="M180 350 Q185 320 190 290 Q195 260 185 230 Q175 200 190 170 Q205 140 195 110 Q185 80 200 50" 
+                      fill="url(#chamberTrunkGradient)" stroke="#4a1d3a" stroke-width="3" class="animate-pulse"/>
+                
+                <!-- Tree canopy/crown -->
+                <ellipse cx="200" cy="90" rx="100" ry="75" 
+                        fill="url(#chamberCanopyGradient)" stroke="#4a1d3a" stroke-width="3" 
+                        class="animate-pulse" style="animation-delay: 0.5s;"/>
+                
+                <!-- Twisted branches -->
+                <path d="M130 110 Q110 100 95 95 Q80 90 70 85" 
+                      fill="none" stroke="#4a1d3a" stroke-width="4" class="animate-pulse" style="animation-delay: 1s;"/>
+                <path d="M270 110 Q290 100 305 95 Q320 90 330 85" 
+                      fill="none" stroke="#4a1d3a" stroke-width="4" class="animate-pulse" style="animation-delay: 1.2s;"/>
+                <path d="M160 70 Q140 55 130 40" 
+                      fill="none" stroke="#4a1d3a" stroke-width="3" class="animate-pulse" style="animation-delay: 1.4s;"/>
+                <path d="M240 70 Q260 55 270 40" 
+                      fill="none" stroke="#4a1d3a" stroke-width="3" class="animate-pulse" style="animation-delay: 1.6s;"/>
+                
+                <!-- Spooky roots -->
+                <path d="M180 350 Q160 360 140 365 Q120 370 100 375" 
+                      fill="none" stroke="#2d1b2e" stroke-width="5" class="animate-pulse" style="animation-delay: 2s;"/>
+                <path d="M190 350 Q210 360 230 365 Q250 370 270 375" 
+                      fill="none" stroke="#2d1b2e" stroke-width="5" class="animate-pulse" style="animation-delay: 2.2s;"/>
+                
+                <!-- Gradients -->
+                <defs>
+                    <linearGradient id="chamberTrunkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#4a1d3a;stop-opacity:1" />
+                        <stop offset="50%" style="stop-color:#2d1b2e;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#1a0f1a;stop-opacity:1" />
+                    </linearGradient>
+                    <radialGradient id="chamberCanopyGradient" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#4c1d95;stop-opacity:0.9" />
+                        <stop offset="50%" style="stop-color:#2d1b2e;stop-opacity:0.95" />
+                        <stop offset="100%" style="stop-color:#1a0f1a;stop-opacity:1" />
+                    </radialGradient>
+                </defs>
+            </svg>
+            
+            <!-- Content overlay on the chamber tree -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center p-8 z-10">
+                <div class="text-center bg-black/40 rounded-xl p-6 backdrop-blur-sm border border-purple-500/30">
+                    <div class="text-5xl mb-4 animate-bounce">🦇</div>
+                    <h2 class="text-2xl font-dancing-script text-purple-300 mb-4" contenteditable="true" id="chamberTitle">The Haunted Crypt</h2>
+                    <p class="text-purple-200 mb-6 opacity-80 text-sm" contenteditable="true" id="chamberDescription">43 cursed souls trapped within the shadows... 🕯️</p>
+                    <button id="enterGalleryFromChamber" class="bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white px-8 py-3 rounded-full font-medium shadow-lg transform hover:scale-105 transition-all duration-300 border border-indigo-400 text-sm mb-3">
+                        Enter the Crypt ⚰️
+                    </button>
+                    <br>
+                    <button id="backToEnvelope" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-full transition-colors text-xs">
+                        ← Back to Grimoire
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Photo Gallery Page -->
+    <div id="galleryPage" class="hidden fixed inset-0 bg-gradient-to-br from-gray-900 via-purple-900 to-black overflow-y-auto relative">
+        <!-- Rich Magical Background -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <!-- Magical Fairy Tale Fog Layers -->
+            <div class="absolute inset-0 bg-gradient-to-t from-blue-900/25 via-transparent to-pink-900/15 animate-pulse" style="animation-duration: 10s;"></div>
+            <div class="absolute inset-0 bg-gradient-to-br from-transparent via-emerald-800/8 to-indigo-900/25 animate-pulse" style="animation-duration: 14s; animation-delay: 3s;"></div>
+            <div class="absolute inset-0 bg-gradient-to-l from-yellow-900/10 via-transparent to-purple-900/15 animate-pulse" style="animation-duration: 16s; animation-delay: 5s;"></div>
+            
+            <!-- Magical Planets and Celestial Bodies -->
+            <div class="absolute top-12 left-12 text-4xl animate-float opacity-40 text-blue-400" style="animation-delay: 0.5s; filter: drop-shadow(0 0 20px rgba(59,130,246,0.9));">🪐</div>
+            <div class="absolute top-24 right-16 text-3xl animate-pulse opacity-35 text-orange-300" style="animation-delay: 2s; filter: drop-shadow(0 0 15px rgba(251,146,60,0.8));">🌍</div>
+            <div class="absolute bottom-32 left-24 text-5xl animate-bounce opacity-45 text-yellow-300" style="animation-delay: 1.5s; filter: drop-shadow(0 0 25px rgba(253,224,71,1.0));">🌙</div>
+            <div class="absolute top-1/3 right-12 text-3xl animate-float opacity-40 text-red-400" style="animation-delay: 3s; filter: drop-shadow(0 0 18px rgba(248,113,113,0.9));">🔴</div>
+            <div class="absolute bottom-1/4 right-20 text-4xl animate-pulse opacity-35 text-purple-400" style="animation-delay: 4s; filter: drop-shadow(0 0 22px rgba(168,85,247,0.8));">🟣</div>
+            
+            <!-- Fairy Tale Elements -->
+            <div class="absolute top-16 left-1/3 text-3xl animate-pulse opacity-30 text-pink-400" style="animation-delay: 1s; filter: drop-shadow(0 0 12px rgba(244,114,182,0.7));">🧚‍♀️</div>
+            <div class="absolute top-40 right-1/4 text-2xl animate-bounce opacity-25 text-green-400" style="animation-delay: 2.5s; filter: drop-shadow(0 0 10px rgba(34,197,94,0.6));">🍄</div>
+            <div class="absolute bottom-20 left-1/2 text-4xl animate-float opacity-35 text-indigo-300" style="animation-delay: 3.5s; filter: drop-shadow(0 0 16px rgba(129,140,248,0.8));">🏰</div>
+            <div class="absolute top-2/3 left-16 text-3xl animate-pulse opacity-30 text-emerald-400" style="animation-delay: 1.8s; filter: drop-shadow(0 0 14px rgba(52,211,153,0.7));">🌳</div>
+            <div class="absolute bottom-1/3 right-1/3 text-2xl animate-bounce opacity-25 text-violet-400" style="animation-delay: 4.2s; filter: drop-shadow(0 0 12px rgba(139,92,246,0.6));">🦄</div>
+            
+            <!-- Floating Magical Stars and Sparkles -->
+            <div class="absolute top-16 left-1/2 text-3xl animate-float opacity-40" style="animation-delay: 0.8s; filter: drop-shadow(0 0 8px rgba(255,215,0,0.8));">⭐</div>
+            <div class="absolute bottom-1/3 left-20 text-2xl animate-pulse opacity-40" style="animation-delay: 2.3s; filter: drop-shadow(0 0 6px rgba(255,255,255,0.7));">✨</div>
+            <div class="absolute top-2/3 right-1/4 text-2xl animate-float opacity-40" style="animation-delay: 1.7s; filter: drop-shadow(0 0 10px rgba(138,43,226,0.9));">🌟</div>
+            <div class="absolute top-1/3 left-1/5 text-xl animate-bounce opacity-40" style="animation-delay: 3.2s; filter: drop-shadow(0 0 5px rgba(255,215,0,0.6));">⭐</div>
+            <div class="absolute bottom-16 right-1/3 text-3xl animate-pulse opacity-40" style="animation-delay: 0.9s; filter: drop-shadow(0 0 12px rgba(255,255,255,0.8));">✨</div>
+            <div class="absolute top-1/4 right-16 text-xl animate-float opacity-40" style="animation-delay: 2.8s; filter: drop-shadow(0 0 7px rgba(138,43,226,0.7));">🌟</div>
+            <div class="absolute bottom-2/3 left-1/3 text-2xl animate-bounce opacity-40" style="animation-delay: 1.4s; filter: drop-shadow(0 0 9px rgba(255,215,0,0.8));">⭐</div>
+            <div class="absolute top-3/4 right-20 text-xl animate-pulse opacity-40" style="animation-delay: 3.5s; filter: drop-shadow(0 0 6px rgba(255,255,255,0.7));">✨</div>
+            
+            <!-- Additional Celestial and Fairy Elements -->
+            <div class="absolute top-8 left-1/4 text-3xl animate-float opacity-40 text-cyan-400" style="animation-delay: 4.1s; filter: drop-shadow(0 0 18px rgba(34,211,238,0.9));">☄️</div>
+            <div class="absolute bottom-8 right-1/5 text-2xl animate-bounce opacity-35 text-emerald-400" style="animation-delay: 2.7s; filter: drop-shadow(0 0 15px rgba(52,211,153,0.8));">🌺</div>
+            <div class="absolute top-1/2 left-8 text-3xl animate-pulse opacity-30 text-pink-400" style="animation-delay: 3.8s; filter: drop-shadow(0 0 14px rgba(244,114,182,0.8));">🌸</div>
+            <div class="absolute bottom-1/2 right-8 text-2xl animate-float opacity-35 text-amber-400" style="animation-delay: 1.9s; filter: drop-shadow(0 0 12px rgba(251,191,36,0.8));">🌞</div>
+            <div class="absolute top-40 left-3/4 text-3xl animate-bounce opacity-40 text-rose-400" style="animation-delay: 4.5s; filter: drop-shadow(0 0 16px rgba(251,113,133,0.9));">🦋</div>
+            <div class="absolute bottom-40 left-1/6 text-2xl animate-pulse opacity-35 text-teal-400" style="animation-delay: 2.1s; filter: drop-shadow(0 0 13px rgba(45,212,191,0.8));">🌿</div>
+            
+            <!-- Floating Magical Orbs and Fairy Dust -->
+            <div class="absolute top-20 right-2/3 w-4 h-4 bg-pink-500/40 rounded-full animate-pulse" style="animation-delay: 3.3s; filter: blur(2px) drop-shadow(0 0 20px rgba(236,72,153,1.0));"></div>
+            <div class="absolute bottom-20 left-2/3 w-6 h-6 bg-blue-400/35 rounded-full animate-bounce" style="animation-delay: 1.6s; filter: blur(1px) drop-shadow(0 0 18px rgba(59,130,246,0.9));"></div>
+            <div class="absolute top-60 right-1/6 w-3 h-3 bg-yellow-500/45 rounded-full animate-float" style="animation-delay: 4.2s; filter: blur(1px) drop-shadow(0 0 15px rgba(234,179,8,1.0));"></div>
+            <div class="absolute bottom-60 left-1/2 w-5 h-5 bg-green-500/35 rounded-full animate-pulse" style="animation-delay: 2.9s; filter: blur(2px) drop-shadow(0 0 20px rgba(34,197,94,0.9));"></div>
+            <div class="absolute top-80 left-1/6 w-4 h-4 bg-purple-500/40 rounded-full animate-bounce" style="animation-delay: 3.7s; filter: blur(1px) drop-shadow(0 0 18px rgba(168,85,247,1.0));"></div>
+            <div class="absolute bottom-80 right-2/3 w-3 h-3 bg-orange-500/45 rounded-full animate-float" style="animation-delay: 1.3s; filter: blur(1px) drop-shadow(0 0 16px rgba(249,115,22,0.9));"></div>
+            
+            <!-- Additional Fairy Tale Creatures -->
+            <div class="absolute top-28 left-2/3 text-2xl animate-float opacity-30 text-yellow-400" style="animation-delay: 5.1s; filter: drop-shadow(0 0 12px rgba(250,204,21,0.8));">🐉</div>
+            <div class="absolute bottom-28 right-1/4 text-xl animate-bounce opacity-25 text-blue-400" style="animation-delay: 6.2s; filter: drop-shadow(0 0 10px rgba(59,130,246,0.7));">🧙‍♂️</div>
+            <div class="absolute top-52 right-3/4 text-2xl animate-pulse opacity-30 text-green-400" style="animation-delay: 7.1s; filter: drop-shadow(0 0 14px rgba(34,197,94,0.8));">🍀</div>
+            <div class="absolute bottom-52 left-1/5 text-xl animate-float opacity-25 text-purple-400" style="animation-delay: 8.3s; filter: drop-shadow(0 0 11px rgba(168,85,247,0.7));">🔮</div>
+            
+            <!-- Mystical Particles -->
+            <div class="absolute top-32 left-2/3 w-1 h-1 bg-white/60 rounded-full animate-pulse" style="animation-delay: 5s; filter: drop-shadow(0 0 4px white);"></div>
+            <div class="absolute bottom-32 right-2/5 w-1 h-1 bg-purple-300/70 rounded-full animate-bounce" style="animation-delay: 6s; filter: drop-shadow(0 0 3px purple);"></div>
+            <div class="absolute top-1/4 left-3/5 w-1 h-1 bg-cyan-300/60 rounded-full animate-float" style="animation-delay: 7s; filter: drop-shadow(0 0 5px cyan);"></div>
+            <div class="absolute bottom-1/4 right-3/5 w-1 h-1 bg-pink-300/70 rounded-full animate-pulse" style="animation-delay: 8s; filter: drop-shadow(0 0 4px pink);"></div>
+        </div>
+        <div class="p-6 relative z-10">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-dancing-script text-orange-300 mb-2 drop-shadow-lg" contenteditable="true" id="galleryTitle">🦇 The Haunted Crypt</h1>
+                <p class="text-purple-200" contenteditable="true" id="galleryDescription">Release the 43 cursed souls trapped within these dark orbs 🔮</p>
+                <button id="backToLetter" class="mt-4 bg-gradient-to-r from-gray-700 to-purple-800 hover:from-gray-800 hover:to-purple-900 text-white px-6 py-2 rounded-full transition-all duration-300 border border-purple-500 shadow-lg shadow-purple-500/50">
+                    ← Back to Grimoire
+                </button>
+            </div>
+
+            <!-- Photo Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4 mb-8" id="photoGrid">
+                <!-- Photo slots will be generated here -->
+            </div>
+
+            <!-- Secret Message -->
+            <div class="text-center bg-gradient-to-r from-gray-800 to-purple-900 rounded-lg p-6 border-2 border-dashed border-purple-500 shadow-lg shadow-purple-500/50">
+                <p class="text-lg font-dancing-script text-orange-300" contenteditable="true" id="secretMessage">
+                    Must Watch top-secret Videos 👻
+                </p>
+                <p class="text-sm text-purple-300 mt-2" contenteditable="true" id="secretSubtext">
+                    🔥https://drive.google.com/drive/folders/1NHAfe0bnCdgSyZpQIOqgUSy64mw8MRgT?usp=sharing 🔥<br><br>
+                    Thank you so much for everything. You are the most prettiest and most kind hearted ever in the whole universe. You are the best of the best of the best of the best of the besttessssssssst ever and will always be the best in the whole world &lt;3 I hope we can meet some some day again :)<br>
+                    btw Do you like pineapple on pizza? 😉
+                </p>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Image Viewer -->
+    <div id="fullscreenViewer" class="hidden fixed inset-0 bg-black bg-opacity-90 fullscreen-overlay z-50 flex items-center justify-center p-4">
+        <div class="relative w-full h-full flex items-center justify-center">
+            <button id="closeFullscreen" class="absolute top-4 right-4 bg-white hover:bg-gray-100 text-gray-800 w-12 h-12 rounded-full flex items-center justify-center shadow-lg z-10 transition-colors text-xl font-bold">
+                ✕
+            </button>
+            <img id="fullscreenImage" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl" alt="Fullscreen view">
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="fileInput" accept="image/*" class="hidden">
+
+    <script>
+
+        
+        let uploadedImages = {
+            "1": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "2": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "3": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "4": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "5": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "6": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "7": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "8": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "9": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "10": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "11": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "12": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "13": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "14": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "15": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "16": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "17": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "18": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "19": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "20": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "21": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "22": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_tutorial_with_sample.png",
+            "23": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "24": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "25": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "26": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "27": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "28": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "29": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "30": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "31": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "32": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "33": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "34": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "35": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "36": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "37": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "38": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "39": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "40": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "41": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "42": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png",
+            "43": "https://blog.testlodge.com/wp-content/uploads/2015/11/writting_test_cases_in_software_testing_with_sample.png"
+        };
+        let currentSlot = null;
+        let collectedFood = {
+            burger: false,
+            drumstick: false,
+            fries: false
+        };
+
+        // Food collection functions
+        function collectFood(foodType, element) {
+            if (collectedFood[foodType]) return; // Already collected
+            
+            collectedFood[foodType] = true;
+            
+            // Update status indicator
+            const statusElement = document.getElementById(foodType + 'Status');
+            if (statusElement) {
+                statusElement.classList.remove('opacity-30');
+                statusElement.classList.add('animate-pulse');
+                statusElement.style.opacity = '1';
+            }
+            
+            // Hide the clicked food item with animation
+            element.style.transform = 'scale(0)';
+            element.style.opacity = '0';
+            element.style.transition = 'all 0.3s ease';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 300);
+            
+            // Check if all food is collected
+            checkAllFoodCollected();
+        }
+        
+        function checkAllFoodCollected() {
+            if (collectedFood.burger && collectedFood.drumstick && collectedFood.fries) {
+                const openButton = document.getElementById('openLetter');
+                if (openButton) {
+                    openButton.disabled = false;
+                    openButton.className = "bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white px-6 py-2 rounded-full font-medium shadow-lg transform hover:scale-105 transition-all duration-300 border border-purple-400 text-sm";
+                    openButton.textContent = "Cast the spell to open 🔮";
+                }
+                
+                // Add celebration effect
+                const foodTracker = document.getElementById('foodTracker');
+                if (foodTracker) {
+                    foodTracker.innerHTML = '<p class="text-orange-300 text-xs animate-bounce">🔮 Ritual complete! The spell is ready! 🔮</p>';
+                }
+            }
+        }
+
+        // Reset game to original state
+        function resetGameState() {
+            // Reset collected food status
+            collectedFood = {
+                burger: false,
+                drumstick: false,
+                fries: false
+            };
+            
+            // Reset open letter button first
+            const openButton = document.getElementById('openLetter');
+            openButton.disabled = true;
+            openButton.className = "bg-gray-400 text-gray-600 px-6 py-2 rounded-full font-medium shadow-lg cursor-not-allowed opacity-50 text-sm";
+            openButton.textContent = "Gather the ritual ingredients first! 🧙‍♀️";
+            
+            // Reset food tracker message completely
+            const foodTracker = document.getElementById('foodTracker');
+            foodTracker.innerHTML = `
+                <p class="text-orange-300 text-xs mb-2">Gather the cursed ingredients:</p>
+                <div class="flex justify-center gap-3">
+                    <span id="burgerStatus" class="text-xl opacity-30">🍔</span>
+                    <span id="drumstickStatus" class="text-xl opacity-30">🍗</span>
+                    <span id="friesStatus" class="text-xl opacity-30">🍟</span>
+                </div>
+            `;
+            
+            // Show all food items again
+            const foodItems = document.querySelectorAll('.food-item');
+            foodItems.forEach(item => {
+                item.style.display = 'block';
+                item.style.transform = 'scale(1)';
+                item.style.opacity = '1';
+            });
+            
+            // Reset letter fold animation
+            document.getElementById('letterFold').classList.remove('open');
+            
+            // Re-setup food listeners
+            setupFoodListeners();
+        }
+
+        // Setup food click listeners
+        function setupFoodListeners() {
+            const foodItems = document.querySelectorAll('.food-item');
+            
+            foodItems.forEach((item) => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const foodType = this.dataset.food;
+                    if (foodType) {
+                        collectFood(foodType, this);
+                    }
+                });
+            });
+        }
+
+        // Initialize the gallery
+        function initializeGallery() {
+            const photoGrid = document.getElementById('photoGrid');
+            photoGrid.innerHTML = '';
+            
+            for (let i = 1; i <= 43; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'photo-slot bg-gradient-to-br from-gray-800 to-purple-900 rounded-full shadow-lg border-2 border-purple-500 flex items-center justify-center cursor-pointer relative overflow-hidden';
+                slot.dataset.slot = i;
+                slot.style.boxShadow = '0 0 20px rgba(147, 51, 234, 0.5), inset 0 0 20px rgba(0, 0, 0, 0.5)';
+                
+                if (uploadedImages[i]) {
+                    // Create mysterious orb with hidden image
+                    slot.innerHTML = `
+                        <div class="mystery-orb w-full h-full flex items-center justify-center relative">
+                            <div class="absolute inset-0 bg-gradient-to-br from-purple-600/30 to-black/70 rounded-full animate-pulse"></div>
+                            <div class="relative z-10 text-center">
+                                <div class="text-4xl mb-1 animate-bounce" style="animation-delay: ${i * 0.1}s;">🔮</div>
+                                <div class="text-xs text-purple-300 font-bold">${i}</div>
+                            </div>
+                            <img src="${uploadedImages[i]}" alt="Photo ${i}" class="hidden w-full h-full object-cover rounded-full">
+                        </div>
+                    `;
+                    slot.classList.add('hover:scale-105', 'transition-all', 'duration-300');
+                } else {
+                    slot.innerHTML = `
+                        <div class="text-center p-4">
+                            <div class="text-3xl mb-2 animate-pulse">📷</div>
+                            <div class="text-xs text-purple-300">Click to upload</div>
+                        </div>
+                    `;
+                }
+                
+                // Add click event
+                slot.addEventListener('click', () => handleSlotClick(i));
+                
+                // Add drag and drop events
+                slot.addEventListener('dragover', handleDragOver);
+                slot.addEventListener('drop', (e) => handleDrop(e, i));
+                
+                photoGrid.appendChild(slot);
+            }
+        }
+
+        function handleSlotClick(slotNumber) {
+            if (uploadedImages[slotNumber]) {
+                // Show fullscreen
+                showFullscreen(uploadedImages[slotNumber]);
+            } else {
+                // Upload new image
+                currentSlot = slotNumber;
+                document.getElementById('fileInput').click();
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDrop(e, slotNumber) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('image/')) {
+                uploadImage(files[0], slotNumber);
+            }
+        }
+
+        function uploadImage(file, slotNumber) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedImages[slotNumber] = e.target.result;
+                initializeGallery();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function showFullscreen(imageSrc) {
+            document.getElementById('fullscreenImage').src = imageSrc;
+            document.getElementById('fullscreenViewer').classList.remove('hidden');
+        }
+
+        // Event listeners
+        document.getElementById('openLetter').addEventListener('click', () => {
+            if (!document.getElementById('openLetter').disabled) {
+                // Hide the letter container and show the secret chamber at top
+                document.getElementById('letterContainer').classList.add('hidden');
+                document.getElementById('secretChamber').classList.remove('hidden');
+                // Hide all food items
+                document.getElementById('foodBackground').style.display = 'none';
+            }
+        });
+
+        // Initialize food listeners when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            setupFoodListeners();
+        });
+        setupFoodListeners(); // Also call immediately in case DOM is already loaded
+
+        document.getElementById('enterGallery').addEventListener('click', () => {
+            document.getElementById('letterContainer').classList.add('hidden');
+            document.getElementById('galleryPage').classList.remove('hidden');
+            document.getElementById('mainBody').classList.remove('overflow-hidden');
+            initializeGallery();
+        });
+
+        document.getElementById('enterGalleryFromChamber').addEventListener('click', () => {
+            document.getElementById('secretChamber').classList.add('hidden');
+            document.getElementById('galleryPage').classList.remove('hidden');
+            document.getElementById('mainBody').classList.remove('overflow-hidden');
+            initializeGallery();
+        });
+
+        document.getElementById('backToEnvelope').addEventListener('click', () => {
+            document.getElementById('secretChamber').classList.add('hidden');
+            document.getElementById('letterContainer').classList.remove('hidden');
+            // Show food items again
+            document.getElementById('foodBackground').style.display = 'block';
+            
+            // Reset the game to original state
+            resetGameState();
+        });
+
+        document.getElementById('backToLetter').addEventListener('click', () => {
+            document.getElementById('galleryPage').classList.add('hidden');
+            document.getElementById('letterContainer').classList.remove('hidden');
+            document.getElementById('letterFold').classList.remove('open');
+            document.getElementById('mainBody').classList.add('overflow-hidden');
+            
+            // Show food items again
+            document.getElementById('foodBackground').style.display = 'block';
+            
+            // Reset the game to original state
+            resetGameState();
+        });
+
+        document.getElementById('closeFullscreen').addEventListener('click', () => {
+            document.getElementById('fullscreenViewer').classList.add('hidden');
+        });
+
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            if (e.target.files.length > 0 && currentSlot) {
+                uploadImage(e.target.files[0], currentSlot);
+                currentSlot = null;
+            }
+        });
+
+        // Close fullscreen with escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.getElementById('fullscreenViewer').classList.add('hidden');
+            }
+        });
+
+        // Prevent default drag behaviors
+        document.addEventListener('dragover', (e) => e.preventDefault());
+        document.addEventListener('drop', (e) => e.preventDefault());
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96fdcc9cc40113df',t:'MTc1NTMxNDQ2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'971d1ec2e42913e1',t:'MTc1NTY0Mjg4Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
